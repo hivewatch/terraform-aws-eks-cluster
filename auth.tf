@@ -85,29 +85,29 @@ data "aws_eks_cluster_auth" "eks" {
 }
 
 
-provider "kubernetes" {
-  # Without a dummy API server configured, the provider will throw an error and prevent a "plan" from succeeding
-  # in situations where Terraform does not provide it with the cluster endpoint before triggering an API call.
-  # Since those situations are limited to ones where we do not care about the failure, such as fetching the
-  # ConfigMap before the cluster has been created or in preparation for deleting it, and the worst that will
-  # happen is that the aws-auth ConfigMap will be unnecessarily updated, it is just better to ignore the error
-  # so we can proceed with the task of creating or destroying the cluster.
-  #
-  # If this solution bothers you, you can disable it by setting var.dummy_kubeapi_server = null
-  host                   = local.enabled ? coalesce(aws_eks_cluster.default[0].endpoint, var.dummy_kubeapi_server) : var.dummy_kubeapi_server
-  cluster_ca_certificate = local.enabled ? base64decode(local.certificate_authority_data) : null
-  token                  = local.kube_data_auth_enabled ? data.aws_eks_cluster_auth.eks[0].token : null
-  config_path            = local.kubeconfig_path_enabled ? var.kubeconfig_path : null
+# provider "kubernetes" {
+#   # Without a dummy API server configured, the provider will throw an error and prevent a "plan" from succeeding
+#   # in situations where Terraform does not provide it with the cluster endpoint before triggering an API call.
+#   # Since those situations are limited to ones where we do not care about the failure, such as fetching the
+#   # ConfigMap before the cluster has been created or in preparation for deleting it, and the worst that will
+#   # happen is that the aws-auth ConfigMap will be unnecessarily updated, it is just better to ignore the error
+#   # so we can proceed with the task of creating or destroying the cluster.
+#   #
+#   # If this solution bothers you, you can disable it by setting var.dummy_kubeapi_server = null
+#   host                   = local.enabled ? coalesce(aws_eks_cluster.default[0].endpoint, var.dummy_kubeapi_server) : var.dummy_kubeapi_server
+#   cluster_ca_certificate = local.enabled ? base64decode(local.certificate_authority_data) : null
+#   token                  = local.kube_data_auth_enabled ? data.aws_eks_cluster_auth.eks[0].token : null
+#   config_path            = local.kubeconfig_path_enabled ? var.kubeconfig_path : null
 
-  dynamic "exec" {
-    for_each = local.kube_exec_auth_enabled ? ["exec"] : []
-    content {
-      api_version = "client.authentication.k8s.io/v1alpha1"
-      command     = "aws"
-      args        = concat(local.exec_profile, ["eks", "get-token", "--cluster-name", aws_eks_cluster.default[0].id], local.exec_role)
-    }
-  }
-}
+#   dynamic "exec" {
+#     for_each = local.kube_exec_auth_enabled ? ["exec"] : []
+#     content {
+#       api_version = "client.authentication.k8s.io/v1alpha1"
+#       command     = "aws"
+#       args        = concat(local.exec_profile, ["eks", "get-token", "--cluster-name", aws_eks_cluster.default[0].id], local.exec_role)
+#     }
+#   }
+# }
 
 resource "kubernetes_config_map" "aws_auth_ignore_changes" {
   count      = local.enabled && var.apply_config_map_aws_auth && var.kubernetes_config_map_ignore_role_changes ? 1 : 0
